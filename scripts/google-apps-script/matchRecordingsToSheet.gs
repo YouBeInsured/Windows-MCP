@@ -9,76 +9,105 @@
  * - Matches phone numbers from spreadsheet column to recording files
  * - Creates formatted hyperlinks with person's name and phone number
  * - Handles various filename formats (e.g., "4155551234.mp3", "recording_4155551234.mp3", etc.)
+ * - Supports multiple vendors with different folder locations
  *
  * Configuration:
- * - Update FOLDER_ID with your Google Drive folder ID
+ * - Update VENDOR_FOLDERS with your vendor names and folder IDs
  * - Adjust column numbers to match your spreadsheet structure
  *
  * @author Windows-MCP Project
- * @version 1.0 (Fixed)
+ * @version 2.0 (Multi-Vendor Support)
  */
 
 function matchRecordingsToSheet() {
   // ============================================
   // CONFIGURATION - Update these values
   // ============================================
-  const FOLDER_ID = '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf'; // Google Drive folder containing recordings
-  const FIRST_NAME_COL = 2; // Column B - First Name
-  const LAST_NAME_COL = 3;  // Column C - Last Name
-  const PHONE_COL = 4;      // Column D - Phone Number
-  const LINK_COL = 13;      // Column M - Where to place the hyperlink
-  const START_ROW = 2;      // First data row (skip header)
+
+  // Map vendor names to their Google Drive folder IDs
+  const VENDOR_FOLDERS = {
+    'Vendor A': '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf',
+    'Vendor B': 'ANOTHER_FOLDER_ID_HERE',
+    'Vendor C': 'YET_ANOTHER_FOLDER_ID_HERE',
+    // Add more vendors as needed
+  };
+
+  // Column configuration
+  const FIRST_NAME_COL = 2;  // Column B - First Name
+  const LAST_NAME_COL = 3;   // Column C - Last Name
+  const PHONE_COL = 4;       // Column D - Phone Number
+  const VENDOR_COL = 5;      // Column E - Vendor Name (NEW!)
+  const LINK_COL = 13;       // Column M - Where to place the hyperlink
+  const START_ROW = 2;       // First data row (skip header)
 
   // ============================================
   // MAIN SCRIPT - No changes needed below
   // ============================================
 
-  // Get folder and files
-  const folder = DriveApp.getFolderById(FOLDER_ID);
-  const files = folder.getFiles();
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const data = sheet.getDataRange().getValues();
 
-  // Build map of phone numbers to file URLs
-  const fileMap = {};
-  while (files.hasNext()) {
-    const file = files.next();
-    const name = file.getName();
+  // Build file maps for each vendor
+  const vendorFileMaps = {};
+  for (const [vendorName, folderId] of Object.entries(VENDOR_FOLDERS)) {
+    try {
+      const folder = DriveApp.getFolderById(folderId);
+      const files = folder.getFiles();
+      const fileMap = {};
 
-    // FIXED: Match 10 consecutive digits ANYWHERE in the filename
-    // This handles various formats:
-    // - "4155551234.mp3"
-    // - "recording_4155551234.mp3"
-    // - "call 4155551234 jan15.mp3"
-    const phoneMatch = name.match(/(\d{10})/);
-    if (phoneMatch) {
-      const phone = phoneMatch[1];
-      // Store the first occurrence (avoid duplicates)
-      if (!fileMap[phone]) {
-        fileMap[phone] = file.getUrl();
+      while (files.hasNext()) {
+        const file = files.next();
+        const name = file.getName();
+
+        // FIXED: Match 10 consecutive digits ANYWHERE in the filename
+        const phoneMatch = name.match(/(\d{10})/);
+        if (phoneMatch) {
+          const phone = phoneMatch[1];
+          if (!fileMap[phone]) {
+            fileMap[phone] = file.getUrl();
+          }
+        }
       }
+
+      vendorFileMaps[vendorName] = fileMap;
+    } catch (e) {
+      Logger.log(`Warning: Could not access folder for vendor "${vendorName}": ${e.message}`);
     }
   }
 
   // Match phone numbers and create hyperlinks
   let matched = 0;
+  let skipped = 0;
+
   for (let i = START_ROW - 1; i < data.length; i++) {
     const rawPhone = data[i][PHONE_COL - 1];
+    const vendor = String(data[i][VENDOR_COL - 1] || '').trim();
 
-    // Clean phone number: remove all non-digits
+    // Skip if no vendor specified
+    if (!vendor) {
+      skipped++;
+      continue;
+    }
+
+    // Check if vendor exists in configuration
+    if (!vendorFileMaps[vendor]) {
+      Logger.log(`Row ${i+1}: Unknown vendor "${vendor}"`);
+      skipped++;
+      continue;
+    }
+
+    // Clean phone number
     const phone = String(rawPhone).replace(/\D/g, '');
-
-    // Use last 10 digits to handle country codes
-    // e.g., "+1 (415) 555-1234" becomes "14155551234", then "4155551234"
     const phone10 = phone.slice(-10);
 
+    // Look up in vendor's file map
+    const fileMap = vendorFileMaps[vendor];
     if (fileMap[phone10]) {
       const firstName = data[i][FIRST_NAME_COL - 1] || '';
       const lastName = data[i][LAST_NAME_COL - 1] || '';
       const lastInitial = lastName.charAt(0).toUpperCase();
 
       // Create label: "John D. 4155551234 Recording"
-      // Escape double quotes to prevent formula breakage
       const label = `${firstName} ${lastInitial}. ${phone10} Recording`.replace(/"/g, '""');
 
       // Create hyperlink formula
@@ -91,7 +120,8 @@ function matchRecordingsToSheet() {
   }
 
   // Show completion message
-  SpreadsheetApp.getUi().alert(`Done! Matched ${matched} recordings.`);
+  const message = `Done!\n\nMatched: ${matched} recordings\nSkipped: ${skipped} rows (no vendor or unknown vendor)`;
+  SpreadsheetApp.getUi().alert(message);
 }
 
 /**
@@ -171,4 +201,62 @@ function matchRecordingsToSheetDebug() {
   }
 
   SpreadsheetApp.getUi().alert(`Done! Matched ${matched} recordings.\n\nCheck Logs (View → Logs) for details.`);
+}
+
+/**
+ * SINGLE VENDOR VERSION
+ *
+ * Use this simpler version if you only need to process one vendor at a time.
+ * Just change the FOLDER_ID and run.
+ */
+function matchRecordingsSingleVendor() {
+  // ============================================
+  // CONFIGURATION - Update these values
+  // ============================================
+  const FOLDER_ID = '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf'; // Google Drive folder
+  const FIRST_NAME_COL = 2;  // Column B
+  const LAST_NAME_COL = 3;   // Column C
+  const PHONE_COL = 4;       // Column D
+  const LINK_COL = 13;       // Column M
+  const START_ROW = 2;
+
+  // Get folder and files
+  const folder = DriveApp.getFolderById(FOLDER_ID);
+  const files = folder.getFiles();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const data = sheet.getDataRange().getValues();
+
+  // Build map of phone numbers to file URLs
+  const fileMap = {};
+  while (files.hasNext()) {
+    const file = files.next();
+    const name = file.getName();
+    const phoneMatch = name.match(/(\d{10})/);
+    if (phoneMatch) {
+      const phone = phoneMatch[1];
+      if (!fileMap[phone]) {
+        fileMap[phone] = file.getUrl();
+      }
+    }
+  }
+
+  // Match phone numbers and create hyperlinks
+  let matched = 0;
+  for (let i = START_ROW - 1; i < data.length; i++) {
+    const rawPhone = data[i][PHONE_COL - 1];
+    const phone = String(rawPhone).replace(/\D/g, '');
+    const phone10 = phone.slice(-10);
+
+    if (fileMap[phone10]) {
+      const firstName = data[i][FIRST_NAME_COL - 1] || '';
+      const lastName = data[i][LAST_NAME_COL - 1] || '';
+      const lastInitial = lastName.charAt(0).toUpperCase();
+      const label = `${firstName} ${lastInitial}. ${phone10} Recording`.replace(/"/g, '""');
+      const formula = `=HYPERLINK("${fileMap[phone10]}","${label}")`;
+      sheet.getRange(i + 1, LINK_COL).setFormula(formula);
+      matched++;
+    }
+  }
+
+  SpreadsheetApp.getUi().alert(`Done! Matched ${matched} recordings.`);
 }

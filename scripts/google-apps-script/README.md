@@ -23,9 +23,44 @@ This script automatically matches audio recording files (MP3) from a Google Driv
 3. Delete any existing code in the editor
 4. Copy and paste the entire contents of `matchRecordingsToSheet.gs`
 
-### 2. Configure the Script
+### 2. Choose Your Version
 
-Update these constants at the top of the script:
+The script includes **three versions**:
+
+| Function | Use Case |
+|----------|----------|
+| `matchRecordingsToSheet()` | **Multi-vendor** - Reads vendor column, matches to different folders |
+| `matchRecordingsSingleVendor()` | **Single vendor** - Simpler, one folder for all recordings |
+| `matchRecordingsToSheetDebug()` | **Debugging** - Logs detailed information |
+
+### 3A. Configure Multi-Vendor Version (Recommended)
+
+**Best for: Multiple vendors with recordings in different folders**
+
+1. **Add vendor column** to your spreadsheet (e.g., Column E)
+2. **Update the configuration:**
+
+```javascript
+const VENDOR_FOLDERS = {
+  'Vendor A': '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf',
+  'Vendor B': '1AbCdEfGhIjKlMnOpQrStUvWxYz0123456',
+  'Vendor C': '1ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543',
+  // Add more vendors as needed
+};
+
+const VENDOR_COL = 5;  // Column E - Vendor Name
+```
+
+3. **Your spreadsheet should look like:**
+
+| A | B (First) | C (Last) | D (Phone) | E (Vendor) | ... | M (Link) |
+|---|-----------|----------|-----------|------------|-----|----------|
+| 1 | John | Doe | 4155551234 | Vendor A | ... | *[Link]* |
+| 2 | Jane | Smith | 5105559876 | Vendor B | ... | *[Link]* |
+
+### 3B. Configure Single-Vendor Version
+
+**Best for: One vendor or processing one folder at a time**
 
 ```javascript
 const FOLDER_ID = 'YOUR_FOLDER_ID';  // See instructions below
@@ -41,19 +76,30 @@ const START_ROW = 2;                  // First data row (skips header)
 2. Look at the URL: `https://drive.google.com/drive/folders/1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf`
 3. The Folder ID is the long string at the end: `1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf`
 
-### 3. Run the Script
+### 4. Run the Script
 
 1. Click the **Save** icon
-2. Click **Run** (play button)
-3. Grant permissions when prompted (first time only)
-4. Wait for completion alert: "Done! Matched X recordings."
+2. Select the function to run from the dropdown (e.g., `matchRecordingsToSheet`)
+3. Click **Run** (play button)
+4. Grant permissions when prompted (first time only)
+5. Wait for completion alert: "Done! Matched X recordings."
 
 ## How It Works
 
+### Multi-Vendor Version:
+1. **Loads Vendor Configuration:** Reads all vendor folders from `VENDOR_FOLDERS`
+2. **Scans Each Folder:** Builds a phone-to-URL map for each vendor
+3. **Processes Each Row:**
+   - Reads vendor name from Column E
+   - Looks up recording in that vendor's folder
+   - Creates hyperlink if match found
+4. **Creates Hyperlinks:** Generates formatted links with format: `FirstName L. 4155551234 Recording`
+
+### Single-Vendor Version:
 1. **Scans Drive Folder:** Reads all files in the specified folder
 2. **Extracts Phone Numbers:** Uses regex to find 10-digit phone numbers in filenames
 3. **Matches to Sheet:** Compares against phone numbers in your spreadsheet (Column D)
-4. **Creates Hyperlinks:** Generates formatted links in Column M with format: `FirstName L. 4155551234 Recording`
+4. **Creates Hyperlinks:** Generates formatted links in Column M
 
 ## Features
 
@@ -110,8 +156,32 @@ The script creates hyperlinks in Column M:
 - `John D. 4155551234 Recording` → links to `recording_4155551234.mp3`
 - `Jane S. 5105559876 Recording` → links to `call_5105559876_2024-01-15.mp3`
 
+## Multi-Vendor Setup Options
+
+You have two approaches for handling multiple vendors:
+
+### Option 1: Single Sheet with Vendor Column (Implemented)
+- All data in one sheet
+- Column E specifies vendor name
+- Script matches to appropriate folder based on vendor
+- **Pros:** Easier to manage, one view of all data
+- **Cons:** All vendors in same sheet
+
+### Option 2: Separate Sheets per Vendor
+- Create a different sheet/tab for each vendor
+- Use `matchRecordingsSingleVendor()` on each sheet
+- **Pros:** Complete segregation of vendor data
+- **Cons:** Must run script on each sheet individually
+
+To use Option 2:
+1. Create separate sheets: "Vendor A", "Vendor B", etc.
+2. Copy `matchRecordingsSingleVendor()` function
+3. Update `FOLDER_ID` for each vendor
+4. Run on each sheet individually
+
 ## Version History
 
+- **v2.0 (Multi-Vendor)** - Added support for multiple vendors with separate folders
 - **v1.0 (Fixed)** - Changed regex from `/(\d{10})\.mp3$/i` to `/(\d{10})/` to match phone numbers anywhere in filename
 - **v0.1 (Original)** - Only matched exact format `XXXXXXXXXX.mp3`
 
