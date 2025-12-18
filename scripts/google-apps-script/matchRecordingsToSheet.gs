@@ -16,7 +16,7 @@
  * - Adjust column numbers to match your spreadsheet structure
  *
  * @author Windows-MCP Project
- * @version 2.0 (Multi-Vendor Support)
+ * @version 2.1 (Auto-Detect + Multi-Vendor Support)
  */
 
 function matchRecordingsToSheet() {
@@ -204,26 +204,54 @@ function matchRecordingsToSheetDebug() {
 }
 
 /**
- * SINGLE VENDOR VERSION
+ * AUTO-DETECT VENDOR BY SHEET NAME (RECOMMENDED FOR SEPARATE SHEETS)
  *
- * Use this simpler version if you only need to process one vendor at a time.
- * Just change the FOLDER_ID and run.
+ * This version automatically detects which vendor based on the sheet name.
+ * Perfect for when you have separate sheets for each vendor that you share externally.
+ *
+ * Setup:
+ * 1. Name your sheets to match vendor names (e.g., "Vendor A", "Vendor B")
+ * 2. Configure SHEET_TO_FOLDER mapping below
+ * 3. Run this same function on any sheet - it auto-detects the right folder!
  */
-function matchRecordingsSingleVendor() {
+function matchRecordingsAutoDetect() {
   // ============================================
-  // CONFIGURATION - Update these values
+  // CONFIGURATION - Map sheet names to folder IDs
   // ============================================
-  const FOLDER_ID = '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf'; // Google Drive folder
+  const SHEET_TO_FOLDER = {
+    'Vendor A': '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf',
+    'Vendor B': 'ANOTHER_FOLDER_ID_HERE',
+    'Vendor C': 'YET_ANOTHER_FOLDER_ID_HERE',
+    // Add more as needed - sheet name must match exactly
+  };
+
   const FIRST_NAME_COL = 2;  // Column B
   const LAST_NAME_COL = 3;   // Column C
   const PHONE_COL = 4;       // Column D
   const LINK_COL = 13;       // Column M
   const START_ROW = 2;
 
-  // Get folder and files
-  const folder = DriveApp.getFolderById(FOLDER_ID);
-  const files = folder.getFiles();
+  // ============================================
+  // AUTO-DETECTION - No changes needed below
+  // ============================================
+
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const sheetName = sheet.getName();
+
+  // Get folder ID based on sheet name
+  const folderId = SHEET_TO_FOLDER[sheetName];
+
+  if (!folderId) {
+    SpreadsheetApp.getUi().alert(
+      `Error: Sheet "${sheetName}" not configured.\n\n` +
+      `Add this sheet to SHEET_TO_FOLDER mapping in the script.`
+    );
+    return;
+  }
+
+  // Get folder and files
+  const folder = DriveApp.getFolderById(folderId);
+  const files = folder.getFiles();
   const data = sheet.getDataRange().getValues();
 
   // Build map of phone numbers to file URLs
@@ -258,5 +286,37 @@ function matchRecordingsSingleVendor() {
     }
   }
 
-  SpreadsheetApp.getUi().alert(`Done! Matched ${matched} recordings.`);
+  SpreadsheetApp.getUi().alert(`Done! Matched ${matched} recordings in "${sheetName}".`);
+}
+
+/**
+ * PROCESS ALL VENDOR SHEETS AT ONCE
+ *
+ * Runs matchRecordingsAutoDetect() on every configured sheet.
+ * Use this to update all vendor sheets in one click!
+ */
+function matchRecordingsAllSheets() {
+  const SHEET_TO_FOLDER = {
+    'Vendor A': '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf',
+    'Vendor B': 'ANOTHER_FOLDER_ID_HERE',
+    'Vendor C': 'YET_ANOTHER_FOLDER_ID_HERE',
+  };
+
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const results = [];
+
+  for (const sheetName of Object.keys(SHEET_TO_FOLDER)) {
+    const sheet = spreadsheet.getSheetByName(sheetName);
+    if (sheet) {
+      spreadsheet.setActiveSheet(sheet);
+      matchRecordingsAutoDetect();
+      results.push(`✓ ${sheetName}`);
+    } else {
+      results.push(`✗ ${sheetName} (sheet not found)`);
+    }
+  }
+
+  SpreadsheetApp.getUi().alert(
+    'Processed all sheets:\n\n' + results.join('\n')
+  );
 }

@@ -25,17 +25,49 @@ This script automatically matches audio recording files (MP3) from a Google Driv
 
 ### 2. Choose Your Version
 
-The script includes **three versions**:
+The script includes **multiple versions** for different use cases:
 
-| Function | Use Case |
-|----------|----------|
-| `matchRecordingsToSheet()` | **Multi-vendor** - Reads vendor column, matches to different folders |
-| `matchRecordingsSingleVendor()` | **Single vendor** - Simpler, one folder for all recordings |
-| `matchRecordingsToSheetDebug()` | **Debugging** - Logs detailed information |
+| Function | Best For | Description |
+|----------|----------|-------------|
+| `matchRecordingsAutoDetect()` | **⭐ Separate sheets per vendor** | Auto-detects vendor by sheet name - RECOMMENDED for shared sheets |
+| `matchRecordingsAllSheets()` | **⚡ Batch processing** | Updates all vendor sheets at once |
+| `matchRecordingsToSheet()` | **Single sheet, vendor column** | Reads vendor from column, matches to different folders |
+| `matchRecordingsToSheetDebug()` | **🔍 Troubleshooting** | Logs detailed information for debugging |
 
-### 3A. Configure Multi-Vendor Version (Recommended)
+### 3A. Configure Auto-Detect (⭐ RECOMMENDED for Shared Sheets)
 
-**Best for: Multiple vendors with recordings in different folders**
+**Best for: Separate sheets per vendor that you share with vendors/clients**
+
+This is the **ideal setup when you share sheets externally** because each vendor only sees their own data.
+
+1. **Create separate sheet tabs** for each vendor:
+   - Right-click sheet tab → Duplicate
+   - Rename to vendor names: "Vendor A", "Vendor B", etc.
+
+2. **Configure the mapping in `matchRecordingsAutoDetect()`:**
+
+```javascript
+const SHEET_TO_FOLDER = {
+  'Vendor A': '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf',
+  'Vendor B': '1AbCdEfGhIjKlMnOpQrStUvWxYz0123456',
+  'Vendor C': '1ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543',
+};
+```
+
+3. **Run the script:**
+   - Open any vendor sheet
+   - Run `matchRecordingsAutoDetect()` - it automatically knows which folder!
+   - OR run `matchRecordingsAllSheets()` to update ALL sheets at once
+
+**Benefits:**
+✅ Complete data segregation
+✅ Share individual sheets with vendors/clients
+✅ Same script works on all sheets
+✅ Can process all sheets with one click
+
+### 3B. Configure Vendor Column Version
+
+**Best for: All data in one sheet with internal use only**
 
 1. **Add vendor column** to your spreadsheet (e.g., Column E)
 2. **Update the configuration:**
@@ -44,32 +76,12 @@ The script includes **three versions**:
 const VENDOR_FOLDERS = {
   'Vendor A': '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf',
   'Vendor B': '1AbCdEfGhIjKlMnOpQrStUvWxYz0123456',
-  'Vendor C': '1ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543',
-  // Add more vendors as needed
 };
 
 const VENDOR_COL = 5;  // Column E - Vendor Name
 ```
 
-3. **Your spreadsheet should look like:**
-
-| A | B (First) | C (Last) | D (Phone) | E (Vendor) | ... | M (Link) |
-|---|-----------|----------|-----------|------------|-----|----------|
-| 1 | John | Doe | 4155551234 | Vendor A | ... | *[Link]* |
-| 2 | Jane | Smith | 5105559876 | Vendor B | ... | *[Link]* |
-
-### 3B. Configure Single-Vendor Version
-
-**Best for: One vendor or processing one folder at a time**
-
-```javascript
-const FOLDER_ID = 'YOUR_FOLDER_ID';  // See instructions below
-const FIRST_NAME_COL = 2;             // Column B
-const LAST_NAME_COL = 3;              // Column C
-const PHONE_COL = 4;                  // Column D
-const LINK_COL = 13;                  // Column M
-const START_ROW = 2;                  // First data row (skips header)
-```
+---
 
 **How to get your Folder ID:**
 1. Open the Google Drive folder containing your recordings
@@ -158,29 +170,45 @@ The script creates hyperlinks in Column M:
 
 ## Multi-Vendor Setup Options
 
-You have two approaches for handling multiple vendors:
+### ⭐ Option 1: Auto-Detect by Sheet Name (RECOMMENDED for External Sharing)
 
-### Option 1: Single Sheet with Vendor Column (Implemented)
+**Perfect when you share sheets with vendors and clients.**
+
+**How it works:**
+- Create separate sheet tabs for each vendor
+- Name sheets to match vendor names exactly
+- Script auto-detects which folder based on active sheet
+- Can update all sheets at once with `matchRecordingsAllSheets()`
+
+**Setup:**
+```javascript
+// In matchRecordingsAutoDetect() function:
+const SHEET_TO_FOLDER = {
+  'Vendor A': '1qsirGBSm3Zgx11Ah5LVzMAmKSmiwZDzf',
+  'Vendor B': '1AbCdEfGhIjKlMnOpQrStUvWxYz0123456',
+};
+```
+
+**Sharing workflow:**
+1. Share "Vendor A" sheet → `vendor-a@example.com` (read-only)
+2. Share "Vendor B" sheet → `vendor-b@example.com` (read-only)
+3. Each vendor only sees their own data ✅
+
+---
+
+### Option 2: Single Sheet with Vendor Column (Internal Use)
+
+**Best for internal tracking where you don't share with vendors.**
+
 - All data in one sheet
 - Column E specifies vendor name
 - Script matches to appropriate folder based on vendor
 - **Pros:** Easier to manage, one view of all data
-- **Cons:** All vendors in same sheet
-
-### Option 2: Separate Sheets per Vendor
-- Create a different sheet/tab for each vendor
-- Use `matchRecordingsSingleVendor()` on each sheet
-- **Pros:** Complete segregation of vendor data
-- **Cons:** Must run script on each sheet individually
-
-To use Option 2:
-1. Create separate sheets: "Vendor A", "Vendor B", etc.
-2. Copy `matchRecordingsSingleVendor()` function
-3. Update `FOLDER_ID` for each vendor
-4. Run on each sheet individually
+- **Cons:** All vendors in same sheet (can't share externally)
 
 ## Version History
 
+- **v2.1 (Auto-Detect)** - Added auto-detection by sheet name for external sharing, batch processing function
 - **v2.0 (Multi-Vendor)** - Added support for multiple vendors with separate folders
 - **v1.0 (Fixed)** - Changed regex from `/(\d{10})\.mp3$/i` to `/(\d{10})/` to match phone numbers anywhere in filename
 - **v0.1 (Original)** - Only matched exact format `XXXXXXXXXX.mp3`
